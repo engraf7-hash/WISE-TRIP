@@ -435,7 +435,7 @@ function Lesson({ lesson, setLesson, onFinish, onExit, trackColor }) {
     const isLast = step === phrases.length - 1;
     return (
       <LessonShell title={lesson.title} progress={(step + 1) / phrases.length} onExit={onExit} color={trackColor}>
-        <div style={{ padding: "10px 20px 20px", display: "flex", flexDirection: "column", gap: 18, minHeight: 420 }}>
+        <div style={{ padding: "10px 20px 28px", display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Passo {step + 1} de {phrases.length} · toque para ouvir</div>
           <button className="btn stamp" onClick={() => speak(p[0])}
             style={{ background: "var(--card)", padding: "36px 20px", display: "flex", flexDirection: "column", gap: 10, alignItems: "center", textAlign: "center" }}>
@@ -443,7 +443,11 @@ function Lesson({ lesson, setLesson, onFinish, onExit, trackColor }) {
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 600 }}>{p[0]}</div>
             <div style={{ fontSize: 15, color: "var(--ink-soft)" }}>{p[1]}</div>
           </button>
-          <div style={{ flex: 1 }} />
+
+          <WritePractice key={`write-${step}`} target={p[0]} color={trackColor} />
+
+          <RepeatTimer key={`timer-${step}`} color={trackColor} />
+
           <button className="btn" onClick={() => {
             if (isLast) setLesson({ ...lesson, phase: "exercise", step: 0 });
             else setLesson({ ...lesson, step: step + 1 });
@@ -469,6 +473,91 @@ function Lesson({ lesson, setLesson, onFinish, onExit, trackColor }) {
         }
       }} color={trackColor} />
     </LessonShell>
+  );
+}
+
+function WritePractice({ target, color }) {
+  const [values, setValues] = useState(["", "", "", ""]);
+  const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const doneCount = values.filter(v => norm(v) === norm(target) && v.trim().length > 0).length;
+
+  return (
+    <div className="stamp" style={{ padding: 16, background: "var(--card)", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>Escreva a frase 4 vezes</div>
+        <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>{doneCount}/4</div>
+      </div>
+      {values.map((v, i) => {
+        const ok = norm(v) === norm(target) && v.trim().length > 0;
+        return (
+          <div key={i} style={{ position: "relative" }}>
+            <input
+              value={v}
+              onChange={(e) => {
+                const nv = e.target.value;
+                setValues(vals => vals.map((x, idx) => idx === i ? nv : x));
+              }}
+              placeholder={`${i + 1}ª vez`}
+              style={{
+                width: "100%", boxSizing: "border-box", padding: "10px 36px 10px 12px", borderRadius: 10,
+                border: `1.5px solid ${ok ? "var(--success)" : "var(--border)"}`, fontSize: 14,
+                fontFamily: "'Plus Jakarta Sans', sans-serif", background: ok ? "var(--success-bg)" : "#fff",
+                color: "var(--ink)",
+              }}
+            />
+            {ok && <Check size={16} color="var(--success)" style={{ position: "absolute", right: 10, top: 12 }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RepeatTimer({ color, duration = 5 }) {
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [rounds, setRounds] = useState(0);
+  const rafRef = useRef(null);
+  const startRef = useRef(null);
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  const start = () => {
+    if (running) return;
+    setRunning(true);
+    setProgress(0);
+    startRef.current = performance.now();
+    const tick = (now) => {
+      const elapsed = (now - startRef.current) / 1000;
+      const p = Math.min(1, elapsed / duration);
+      setProgress(p);
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        setRunning(false);
+        setRounds(r => r + 1);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  return (
+    <div className="stamp" style={{ padding: 16, background: "var(--card)", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>Repita em voz alta</div>
+        <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>{rounds > 0 ? `${rounds}x repetido` : "toque em começar"}</div>
+      </div>
+      <button className="btn" onClick={start} disabled={running}
+        style={{
+          background: running ? "var(--border)" : color, color: "#fff", borderRadius: 999,
+          padding: "9px 16px", fontSize: 13, alignSelf: "flex-start",
+        }}>
+        {running ? "Repetindo..." : "Começar (5s)"}
+      </button>
+      <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress * 100}%`, background: color, transition: running ? "width .05s linear" : "width .15s ease" }} />
+      </div>
+    </div>
   );
 }
 
